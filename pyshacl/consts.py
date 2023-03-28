@@ -44,6 +44,7 @@ SH_SPARQLTargetType = SH.SPARQLTargetType
 SH_JSTarget = SH.JSTarget
 SH_JSTargetType = SH.JSTargetType
 SH_JSFunction = SH.JSFunction
+SH_NodesPathConstraintComponent = SH.NodesPathConstraintComponent
 
 # predicates
 RDF_type = RDF.type
@@ -106,3 +107,5 @@ SH_optional = SH.optional
 SH_js = SH.js
 SH_jsFunctionName = SH.jsFunctionName
 SH_jsLibrary = SH.jsLibrary
+SH_nodesPath = SH.nodesPath
+SH_detail = SH.detail

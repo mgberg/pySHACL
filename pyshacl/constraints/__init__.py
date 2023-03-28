@@ -24,6 +24,7 @@ from pyshacl.constraints.core.shape_based_constraints import (
     NodeConstraintComponent,
     PropertyConstraintComponent,
     QualifiedValueShapeConstraintComponent,
+    NodesPathConstraintComponent,
 )
 from pyshacl.constraints.core.string_based_constraints import (
     LanguageInConstraintComponent,
@@ -77,6 +78,7 @@ ALL_CONSTRAINT_COMPONENTS: List[Type[ConstraintComponent]] = [
     HasValueConstraintComponent,
     InConstraintComponent,
     SPARQLBasedConstraint,
+    NodesPathConstraintComponent,
     # SPARQLConstraintComponent
     # ^ ^ This one is deliberately not included in this
     # list because it gets matched to shapes manually later

@@ -8,7 +8,16 @@ from warnings import warn
 import rdflib
 
 from pyshacl.constraints.constraint_component import ConstraintComponent
-from pyshacl.consts import SH, SH_node, SH_NodeConstraintComponent, SH_property, SH_PropertyConstraintComponent
+from pyshacl.consts import (
+    SH,
+    SH_node,
+    SH_NodeConstraintComponent,
+    SH_property,
+    SH_PropertyConstraintComponent,
+    SH_nodesPath,
+    SH_NodesPathConstraintComponent,
+    SH_detail,
+)
 from pyshacl.errors import (
     ConstraintLoadError,
     ConstraintLoadWarning,
@@ -18,6 +27,8 @@ from pyshacl.errors import (
 )
 from pyshacl.pytypes import GraphLike
 from pyshacl.rdfutil import stringify_node
+from pyshacl.helper.expression_helper import value_nodes_from_path
+from textwrap import indent
 
 
 SH_QualifiedValueCountConstraintComponent = SH.QualifiedValueConstraintComponent
@@ -364,6 +375,147 @@ class QualifiedValueShapeConstraintComponent(ConstraintComponent):
 
         for v_shape in self.value_shapes:
             _nc, _r = _evaluate_value_shape(v_shape)
+            non_conformant = non_conformant or _nc
+            reports.extend(_r)
+        return (not non_conformant), reports
+
+
+class NodesPathConstraintComponent(ConstraintComponent):
+    """
+    sh:nodesPath can be used to specify that each value node must conform to the node shape(s) it is connected to via the specified path.
+    Link:
+    No link yet!
+    Textual Definition:
+    For each value node v: For each n found at path $path from v that is a node shape, a failure MUST be produced with v as sh:value if the conformance checking of v against n produces a failure. This validation result should include all validation results produced from checking the conformance of v with respect to each n via sh:detail.
+    """
+
+    shacl_constraint_component = SH_NodesPathConstraintComponent
+    shape_expecting = True
+    list_taking = False
+
+    def __init__(self, shape):
+        super(NodesPathConstraintComponent, self).__init__(shape)
+        nodes_path_objects = set(self.shape.objects(SH_nodesPath))
+        if len(nodes_path_objects) < 1:
+            raise ConstraintLoadError(
+                "NodesPathConstraintComponent must have at least one sh:nodesPath predicate.",
+                "No link yet!",
+            )
+        # Store all values for sh:nodesPath for later
+        self.nodes_path_objects = nodes_path_objects
+        self.sg = self.shape.sg
+
+    @classmethod
+    def constraint_parameters(cls):
+        return [SH_nodesPath]
+
+    @classmethod
+    def constraint_name(cls):
+        return "NodesPathConstraintComponent"
+
+    def make_generic_messages(self, datagraph: GraphLike, focus_node, value_node) -> List[rdflib.Literal]:
+        raise NotImplementedError("A Nodes Path Constraint Component should not be able to generate its own message.")
+
+    def evaluate(self, target_graph: GraphLike, focus_value_nodes: Dict, _evaluation_path: List):
+        """
+
+        :type focus_value_nodes: dict
+        :type target_graph: rdflib.Graph
+        :type _evaluation_path: list
+        """
+        reports: List[Dict] = []
+        non_conformant = False
+        shape = self.shape
+
+        # Shortcut, when there are no value nodes, don't check for recursion, don't validate and exit early
+        value_node_count = 0
+        for f, value_nodes in focus_value_nodes.items():
+            value_node_count = value_node_count + len(value_nodes)
+        if value_node_count < 1:
+            return (not non_conformant), reports
+
+        potentially_recursive = self.recursion_triggers(_evaluation_path)
+
+        def _evaluate_nodes_path(path):
+            nonlocal shape, target_graph, focus_value_nodes, _evaluation_path, potentially_recursive
+            _reports = []
+            _non_conformant = False
+
+            for f, value_nodes in focus_value_nodes.items():
+                for v in value_nodes:
+                    # For each value node, find all nodes at the specifed path from the value node,
+                    # discarding the current shape if found in the path to avoid redundancy
+                    potential_node_shapes = value_nodes_from_path(self.sg, v, path, target_graph)
+                    potential_node_shapes.discard(shape)
+
+                    # Create storage for validation result information on a per focus/value node basis
+                    resp_text = resp_node = resp_triples = None
+
+                    for potential_node_shape in potential_node_shapes:
+                        # For each node found earlier, proceed validating if it is a node shape
+                        # NOTE: shape.get_other_shape returns a Shape object iff that shape has
+                        #   already been cached by the SHACL engine, otherwise it returns None.
+                        #   In other words, it is basically a dictionary get and no processing
+                        #   of the graph is performed. This means that only resources that were
+                        #   part of the shapes graph provided will be available for validation here.
+                        #   This seems like a reasonable approach/restriction.
+                        node_shape = shape.get_other_shape(potential_node_shape)
+                        if not node_shape or node_shape.is_property_shape:
+                            continue
+
+                        if potentially_recursive and node_shape in potentially_recursive:
+                            warn(ShapeRecursionWarning(_evaluation_path))
+                            return _non_conformant, _reports
+
+                        # Validate the value node against the shape
+                        _is_conform, _r = node_shape.validate(
+                            target_graph, focus=v, _evaluation_path=_evaluation_path[:]
+                        )
+                        if (not _is_conform) or len(_r) > 0:
+                            _non_conformant = True
+                            # This would be used if the results from the node shape should be added
+                            # to the report directly, but that would not capture that this constraint
+                            # component was involved at all.
+                            # _reports.extend(_r)
+
+                            # Create a validation result for this value node if one hasn't been made already
+                            if not resp_node:
+                                resp_text, resp_node, resp_triples = self.make_v_result(
+                                    datagraph=target_graph,
+                                    focus_node=f,
+                                    value_node=v,
+                                    result_path=path,
+                                    extra_messages=[
+                                        rdflib.Literal(
+                                            f"Value {stringify_node(self.sg.graph, v)} does not conform to shape(s) "
+                                            + f"at path {stringify_node(self.sg.graph, path)}. "
+                                            + "See details for more information."
+                                        )
+                                    ],
+                                )
+                                resp_text += "\tDetails:\n"
+
+                            # Add the report returned for the node shape nested under this new validation result
+                            # (via sh:detail in the graph)
+                            for text_sub, node_sub, triples_sub in _r:
+                                # Add text of validation result in nested details section
+                                resp_text = resp_text + indent(text_sub, "\t\t")
+                                # Add a triple connecting the new validation result to the
+                                # validation result for the nested node
+                                resp_triples.append((resp_node, SH_detail, node_sub))
+                                # Extend the triples in the report with the ones from the nested result
+                                resp_triples.extend(triples_sub)
+
+                    # Append to list of validation results on a focus/value node basis
+                    if resp_node:
+                        _reports.append((resp_text, resp_node, resp_triples))
+
+            return _non_conformant, _reports
+
+        # Evaluate each object for the predicate sh:nodesPath
+        for path in self.nodes_path_objects:
+            # Evaluate the node shapes found at that path for all value nodes
+            _nc, _r = _evaluate_nodes_path(path)
             non_conformant = non_conformant or _nc
             reports.extend(_r)
         return (not non_conformant), reports
