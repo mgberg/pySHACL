@@ -1,0 +1,108 @@
+@prefix ex: <http://example.org/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+
+# The following report is not the direct output from pyshacl- it has been formatted to improve readability for the sake of example.
+[
+  a sh:ValidationReport ;
+  sh:conforms false ;
+
+  # One error for ex:SomeUSCitizen with one nested error
+  sh:result [
+      a sh:ValidationResult ;
+      sh:focusNode ex:SomeUSCitizen ;
+      sh:resultMessage "Value ex:SomeUSCitizen does not conform to shape(s) at path ex:isCitizenOf/ex:hasCitizenRequirements. See details for more information." ;
+      sh:resultPath ( ex:isCitizenOf ex:hasCitizenRequirements ) ;
+      sh:resultSeverity sh:Violation ;
+      sh:sourceConstraintComponent sh:NodesPathConstraintComponent ;
+      sh:sourceShape ex:Person ;
+      sh:value ex:SomeUSCitizen ;
+      sh:detail [
+          a sh:ValidationResult ;
+          sh:focusNode ex:SomeUSCitizen ;
+          sh:resultMessage "Less than 1 values on ex:SomeUSCitizen->ex:ssn" ;
+          sh:resultPath ex:ssn ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+          sh:sourceShape [
+              a sh:PropertyShape ;
+              sh:path ex:ssn ;
+              sh:datatype xsd:integer ;
+              sh:minCount 1 ;
+              sh:name "Social Security Number" ;
+            ] ;
+        ] ;
+    ] ;
+
+    # One error for ex:SomeUKCitizen with one nested error
+  sh:result [
+      a sh:ValidationResult ;
+      sh:focusNode ex:SomeUKCitizen ;
+      sh:resultMessage "Value ex:SomeUKCitizen does not conform to shape(s) at path ex:isCitizenOf/ex:hasCitizenRequirements. See details for more information." ;
+      sh:resultPath ( ex:isCitizenOf ex:hasCitizenRequirements ) ;
+      sh:resultSeverity sh:Violation ;
+      sh:sourceConstraintComponent sh:NodesPathConstraintComponent ;
+      sh:sourceShape ex:Person ;
+      sh:value ex:SomeUKCitizen ;
+      sh:detail [
+          a sh:ValidationResult ;
+          sh:focusNode ex:SomeUKCitizen ;
+          sh:resultMessage "Less than 1 values on ex:SomeUKCitizen->ex:nin" ;
+          sh:resultPath ex:nin ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+          sh:sourceShape [
+              a sh:PropertyShape ;
+              sh:path ex:nin ;
+              sh:datatype xsd:integer ;
+              sh:minCount 1 ;
+              sh:name "National Insurance Number" ;
+            ] ;
+        ] ;
+    ] ;
+
+  # One error for ex:SomePersonWithDualCitizenship with two nested errors
+  sh:result [
+      a sh:ValidationResult ;
+      sh:focusNode ex:SomePersonWithDualCitizenship ;
+      sh:resultMessage "Value ex:SomePersonWithDualCitizenship does not conform to shape(s) at path ex:isCitizenOf/ex:hasCitizenRequirements. See details for more information." ;
+      sh:resultPath ( ex:isCitizenOf ex:hasCitizenRequirements ) ;
+      sh:resultSeverity sh:Violation ;
+      sh:sourceConstraintComponent sh:NodesPathConstraintComponent ;
+      sh:sourceShape ex:Person ;
+      sh:value ex:SomePersonWithDualCitizenship ;
+      sh:detail [
+          a sh:ValidationResult ;
+          sh:focusNode ex:SomePersonWithDualCitizenship ;
+          sh:resultMessage "Less than 1 values on ex:SomePersonWithDualCitizenship->ex:nin" ;
+          sh:resultPath ex:nin ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+          sh:sourceShape [
+              a sh:PropertyShape ;
+              sh:path ex:nin ;
+              sh:datatype xsd:integer ;
+              sh:minCount 1 ;
+              sh:name "National Insurance Number" ;
+            ] ;
+        ] ;
+      sh:detail [
+          a sh:ValidationResult ;
+          sh:focusNode ex:SomePersonWithDualCitizenship ;
+          sh:resultMessage "Less than 1 values on ex:SomePersonWithDualCitizenship->ex:ssn" ;
+          sh:resultPath ex:ssn ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+          sh:sourceShape [
+              a sh:PropertyShape ;
+              sh:path ex:ssn ;
+              sh:datatype xsd:integer ;
+              sh:minCount 1 ;
+              sh:name "Social Security Number" ;
+            ] ;
+        ] ;
+    ] ;
+] .

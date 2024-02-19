@@ -1,0 +1,114 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+
+### Background ###
+# In this example, consider some HR system that (in part) keeps track of people and what country(-ies) for which they are citizens.
+# In this system, Person and Country are both classes- each person and each country are instances of those classes respectively.
+# Suppose that it is also necessary for this system to support user-defined requirements to be applied to people depending on the country(-ies) for which they are citizens.
+# To accomplish this:
+#   - Each country may have an associated shape (connected via ex:hasCitizenReqirements) that capture the user-defined requirements
+#   - The Person class specifies that all Person instances must also conform to any shapes found at the path ex:isCitizenOf/ex:hasCitizenRequirements.
+
+# Of course, these constraints could be expressed in other ways. For example, "United States Citizen" and "United Kingdom Citizen"
+# could be implemented as classes that are subclass of Person. This would have some potentially undesirable side effects, however:
+#   - Every time a new country is added, a new corresponding class would have to be added for a citizen of that country.
+#       - Consequently, adding a new Country instance has the side effect of requiring an ontology modification.
+#   - These instance/class pairs would have to stay in sync.
+#   - For the sake of integrity, presumably each of these classes should verify that all instances are ex:isCitizenOf the corresponding
+#       country instance and anything that is ex:isCitizenOf a country must be an instance of the corresponding class.
+# These side effects represent extra levels of complexity that don't really need to exist.
+
+# Personally, I'd prefer adding classes like "United States Citizen" and "United Kingdon Citizen" only if OWL reasoning was in use,
+# they were defined classes (e.g., in Manchester syntax, "ex:UnitedStatesCitizen EquivalentTo (Person and ex:isCitizenOf value ex:UnitedStates)"),
+# and membership in those defined classes was inferred and not asserted. However, that would require an OWL reasoner in order to perform SHACL validation;
+# that may not always be available, practical, or efficient.
+
+
+### Classes ###
+ex:Person
+  a rdfs:Class ;
+  a sh:NodeShape ;
+  sh:nodesPath (
+    ex:isCitizenOf
+    ex:hasCitizenRequirements
+  ) ;
+  sh:property [
+    a sh:PropertyShape ;
+    sh:path ex:isCitizenOf ;
+    sh:class ex:Country ;
+    sh:minCount 1 ;
+  ] ;
+.
+
+ex:Country
+  a rdfs:Class ;
+  a sh:NodeShape ;
+  sh:property [
+    a sh:PropertyShape ;
+    sh:path ex:hasCitizenReqirements ;
+    sh:class sh:NodeShape ;
+  ] ;
+.
+
+
+### Countries and Associated Requirements ###
+ex:UnitedStates
+  a ex:Country ;
+  ex:hasCitizenRequirements ex:UnitedStatesCitizenShape ;
+.
+# For the sake of example, assume that all US citizens must have a Social Security Number
+ex:UnitedStatesCitizenShape
+  a sh:NodeShape ;
+  sh:property [
+    a sh:PropertyShape ;
+    sh:name "Social Security Number" ;
+    sh:path ex:ssn ;
+    sh:datatype xsd:integer ;
+    sh:minCount 1 ;
+  ] ;
+.
+
+ex:UnitedKingdom
+  a ex:Country ;
+  ex:hasCitizenRequirements ex:UnitedKingdomCitizenShape ;
+.
+# For the sake of example, assume that all UK citizens must have a National Insurance Number
+ex:UnitedKingdomCitizenShape
+  a sh:NodeShape ;
+  sh:property [
+    a sh:PropertyShape ;
+    sh:name "National Insurance Number" ;
+    sh:path ex:nin ;
+    sh:datatype xsd:integer ;
+    sh:minCount 1 ;
+  ] ;
+.
+
+# For the sake of example, no specific requirements are needed for Canadian citizens.
+ex:Canada
+  a ex:Country ;
+.
+
+
+### People ###
+ex:SomePersonWithNoValidationErrors
+  a ex:Person ;
+  ex:isCitizenOf ex:Canada ;
+.
+ex:SomeUSCitizen
+  a ex:Person ;
+  ex:isCitizenOf ex:UnitedStates ;
+.
+ex:SomeUKCitizen
+  a ex:Person ;
+  ex:isCitizenOf ex:UnitedKingdom ;
+.
+ex:SomePersonWithDualCitizenship
+  a ex:Person ;
+  ex:isCitizenOf ex:UnitedStates ;
+  ex:isCitizenOf ex:UnitedKingdom ;
+.
